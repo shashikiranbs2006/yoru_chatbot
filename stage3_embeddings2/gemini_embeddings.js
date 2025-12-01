@@ -1,12 +1,4 @@
-/**
- * Stage 3: Generate embeddings using Gemini (text-embedding-004)
- * -------------------------------------------------------------
- * This script:
- * 1. Loads chunks generated in Stage 2
- * 2. Uses Gemini to embed every chunk
- * 3. Attaches metadata (pdf_url, module, etc.)
- * 4. Saves final embeddings.json for Stage 4 upload
- */
+// Stage 3: Generate embeddings using Gemini
 
 import fs from "fs";
 import path from "path";
@@ -16,49 +8,59 @@ import { fileURLToPath } from "url";
 
 dotenv.config();
 
-// Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const embedder = genAI.getGenerativeModel({ model: "text-embedding-004" });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Input from Stage 2
 const chunksPath = path.join(__dirname, "../stage2_chunks/chunks.json");
-
-// Output file for embeddings
 const outputPath = path.join(__dirname, "embeddings.json");
 
-// Load chunks
 console.log("Loading chunks...");
 const chunks = JSON.parse(fs.readFileSync(chunksPath, "utf8"));
 console.log(`Loaded ${chunks.length} chunks.`);
-console.log("Generating embeddings with Gemini...\n");
+console.log("Generating embeddings with Gemini...");
 
-// Final output list
+// Retry wrapper
+async function generateEmbeddingWithRetry(text, retries = 5) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const result = await embedder.embedContent(text);
+      return result.embedding.values;
+    } catch (err) {
+      console.log(`Embedding failed (Attempt ${attempt}/5): ${err.statusText}`);
+
+      if (attempt === retries) throw err;
+
+      // wait 2 seconds before retry
+      await new Promise(res => setTimeout(res, 2000));
+    }
+  }
+}
+
 let finalData = [];
 
 for (let i = 0; i < chunks.length; i++) {
   const c = chunks[i];
 
-  // Generate 768-d DIM embedding from Gemini
-  const result = await embedder.embedContent(c.content);
-  const vector = result.embedding.values;
+  // Generate with retry
+  const vector = await generateEmbeddingWithRetry(c.content);
 
-  // IMPORTANT: Provide SAFE metadata (no null values allowed by Chroma)
   finalData.push({
-    id: `${c.source}_${c.chunk_id}`,      // unique id per chunk
-    text: c.content,                      // chunk text
-    source: c.source,                     // filename
-    pdf: c.source,                        // pdf name for clarity
-    pdf_url: `/pdf/${c.source}`,          // link for frontend
-    module: c.module ? String(c.module) : "",  // must always be string
-    embedding: vector                     // Gemini embedding array
+    id: c.id,
+    text: c.content,
+    source: c.source,
+    pdf: c.source,
+    pdf_url: `/pdf/${c.source}`,
+    module: "",
+    embedding: vector
   });
 
-  if (i % 50 === 0) console.log(`Progress: ${i}/${chunks.length}`);
+  if (i % 50 === 0) {
+    console.log(`Progress: ${i}/${chunks.length}`);
+  }
 }
 
-// Save embeddings
 fs.writeFileSync(outputPath, JSON.stringify(finalData, null, 2));
-console.log("\nStage 3 complete. Saved to embeddings.json.");
+console.log("Stage 3 complete. Saved to embeddings.json.");
