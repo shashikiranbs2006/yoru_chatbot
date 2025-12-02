@@ -1,11 +1,13 @@
 downloaded_files/
 
 stage1_text/*.json
-stage2_chunks/*.json
-stage3_embeddings2/*.json
+
+
 stage4_upload/*.json
 
 node_modules/
 
 *.log
 raw_dump.txt
+
+stage3_embeddings2/embeddings.json
