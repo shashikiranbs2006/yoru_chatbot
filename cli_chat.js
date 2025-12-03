@@ -4,7 +4,7 @@ const ask = async () => {
   const question = process.argv.slice(2).join(" ");
 
   if (!question) {
-    console.log("Enter a question");
+    console.log("Usage: node cli_test.js \"your question\"");
     process.exit(1);
   }
 
@@ -17,19 +17,23 @@ const ask = async () => {
 
     const data = await response.json();
 
-    console.log("\nQUESTION:");
+    console.log("\n========================");
+    console.log("QUESTION:");
     console.log(question);
 
     console.log("\nANSWER:");
-    console.log(data.answer);
+    console.log(data.answer || "No answer returned");
 
-    console.log("\nSOURCE PDF:");
-    console.log(data.source || "No source found");
+    console.log("\nSOURCE FILE:");
+    console.log(data.source_label || "No source label");
 
-    console.log("\n");
+    console.log("\nSOURCE LINK:");
+    console.log(data.source_link || "No source link");
+
+    console.log("========================\n");
 
   } catch (err) {
-    console.error("Error:", err.message);
+    console.error("CLI ERROR:", err.message);
   }
 };
 

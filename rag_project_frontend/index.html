@@ -3,34 +3,161 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Assistant Yoru</title>
+    <title>RAG AI Assistant</title>
     <link rel="stylesheet" href="style.css" />
+
+    <!-- Modern font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
   </head>
 
   <body>
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-      <div class="brand">RAG Assistant</div>
+    <div class="app-shell">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="brand-row">
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" fill="url(#yGrad)" />
+              <path
+                d="M8 7L12 11L16 7"
+                stroke="white"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M12 11V16"
+                stroke="white"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+              <defs>
+                <linearGradient
+                  id="yGrad"
+                  x1="12"
+                  y1="3"
+                  x2="12"
+                  y2="21"
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <stop stop-color="#4f46e5" />
+                  <stop offset="1" stop-color="#0ea5e9" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
 
-      <div class="history-section">
-        <div class="history-title">Recent</div>
-        <div class="history-item">Process scheduling</div>
-        <div class="history-item">Module 1 summary</div>
-        <div class="history-item">Zener diode</div>
-      </div>
+          <div class="brand-text">
+            <div class="brand-title">Yoru Chatbot</div>
+
+            <div class="brand-subtitle">
+              Don't have notes dont worry we got you
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Recent questions</div>
+          <div id="historyList" class="history-list">
+            <!-- Filled dynamically by JS -->
+            <div class="history-empty">No history yet. Start asking!</div>
+          </div>
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="badge">College NOTES</div>
+        </div>
+      </aside>
+
+      <!-- MAIN CHAT AREA -->
+      <main class="chat-layout">
+        <header class="chat-header">
+          <div class="header-left">
+            <div class="header-title">AI Chat</div>
+            <div class="header-subtitle">
+              Ask anything from our BMSIT Syllabus.
+            </div>
+          </div>
+          <div class="header-actions">
+            <button id="themeToggleBtn" class="header-btn" type="button">
+              🌙
+            </button>
+
+            <button id="clearChatBtn" class="header-btn" type="button">
+              Clear chat
+            </button>
+          </div>
+        </header>
+
+        <section class="chat-main">
+          <!-- Suggested prompts (only visible when chat is empty) -->
+          <div id="suggestedPrompts" class="suggested-prompts">
+            <div class="suggested-title">Try one of these:</div>
+            <div class="suggested-grid">
+              <button
+                class="prompt-pill"
+                onclick="askChat('Summarise Module 1 in simple points.')"
+              >
+                Summarise Module 1
+              </button>
+              <button
+                class="prompt-pill"
+                onclick="askChat('Explain process scheduling with examples.')"
+              >
+                Explain process scheduling
+              </button>
+              <button
+                class="prompt-pill"
+                onclick="askChat('Explain Zener diode characteristics and its applications.')"
+              >
+                Zener diode explanation
+              </button>
+              <button
+                class="prompt-pill"
+                onclick="askChat('Give me important exam questions from these notes.')"
+              >
+                Important exam questions
+              </button>
+            </div>
+          </div>
+
+          <!-- Chat messages -->
+          <!-- Chat messages -->
+          <div id="chatBox" class="chat-box"></div>
+
+          <!-- PLUS BUTTON INSIDE CHAT MAIN -->
+          <button id="plusBtn" class="plus-btn" type="button">+</button>
+
+          <!-- Scroll to bottom button -->
+          <button id="scrollBottomBtn" class="scroll-bottom-btn" type="button">
+            ⬇
+          </button>
+        </section>
+
+        <!-- INPUT AREA -->
+        <section class="input-area">
+          <div class="input-wrapper">
+            <textarea
+              id="q"
+              placeholder="Ask anything from your notes... (Press Enter to send, Shift+Enter for new line)"
+            ></textarea>
+            <button id="sendBtn" type="button" onclick="askChat()">➤</button>
+          </div>
+        </section>
+      </main>
     </div>
 
-    <!-- CHAT SECTION -->
-    <div class="chat-layout">
-      <div class="chat-header">AI Chat</div>
-
-      <div id="chatBox" class="chat-box"></div>
-
-      <div class="input-area">
-        <input id="q" placeholder="Ask anything from your notes..." />
-        <button onclick="askChat()">Send</button>
-      </div>
-    </div>
+    <input
+      id="hiddenUploadInput"
+      type="file"
+      accept=".pdf,.txt,.docx"
+      style="display: none"
+    />
 
     <script src="script.js"></script>
   </body>
