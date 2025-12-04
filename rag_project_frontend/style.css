@@ -94,7 +94,6 @@
     --bg-alt: #020617;
     --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0b1220 100%);
 
-
     --sidebar-bg: #020617;
     --chat-bg: rgba(15, 23, 42, 0.9);
     --primary: #38bdf8;
@@ -121,8 +120,6 @@ body {
     overflow: hidden;
     position: relative;
 }
-
-
 
 /* APP LAYOUT */
 .app-shell {
@@ -324,7 +321,7 @@ body {
 /* CHAT MAIN */
 .chat-main {
     flex: 1;
-    position: relative;
+    min-height: 0;
     display: flex;
     flex-direction: column;
 }
@@ -368,8 +365,9 @@ body {
 /* CHAT BOX */
 .chat-box {
     flex: 1;
+    min-height: 0;
     padding: 18px 24px 90px 24px;
-    overflow-y: auto;
+    overflow-y: auto !important;
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -612,6 +610,52 @@ body {
     color: var(--primary);
 }
 
+/* PLUS BUTTON */
+.plus-btn {
+    position: absolute;
+    bottom: 20px;
+    right: 22px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.2s ease;
+    z-index: 999;
+}
+
+/* LINKS INSIDE BOT MESSAGE */
+.msg-bot a {
+    color: #38bdf8 !important;
+    text-decoration: underline;
+    word-break: break-all;
+}
+
+/* Fix bot message HTML rendering */
+.msg-bot strong {
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+/* DARK MODE bullets (bot) */
+:root:not(.light) .msg-bot ul,
+:root:not(.light) .msg-bot li {
+    color: #e5e7eb !important;
+}
+
+/* LIGHT MODE bullets (bot) */
+:root.light .msg-bot ul,
+:root.light .msg-bot li {
+    color: #1e293b !important;
+}
+
 /* RESPONSIVE */
 @media (max-width: 800px) {
     .app-shell {
@@ -633,62 +677,4 @@ body {
     .input-area {
         padding-inline: 12px;
     }
-}
-.plus-btn {
-    position: absolute;
-    bottom: 20px;
-    right: 22px;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    border: none;
-    background: linear-gradient(135deg, #2563eb, #4f46e5);
-    color: white;
-    font-size: 24px;
-    cursor: pointer;
-    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.35);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: 0.2s ease;
-    z-index: 999;
-}
-
-.msg-bot a {
-    color: #38bdf8 !important;
-    text-decoration: underline;
-    word-break: break-all;
-}
-.msg-bot a {
-    color: #38bdf8 !important;
-    text-decoration: underline;
-    word-break: break-all;
-}
-/* Fix bot message HTML rendering */
-.msg-bot strong {
-    color: #ffffff !important;
-    font-weight: 600;
-}
-
-.msg-bot a {
-    color: #38bdf8 !important;
-    text-decoration: underline;
-    word-break: break-all;
-}
-
-.msg-bot ul, 
-.msg-bot li {
-    color: #e5e7eb !important;
-}
-.chat-main {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-.chat-box {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto !important;
 }

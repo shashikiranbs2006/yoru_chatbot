@@ -24,9 +24,9 @@ let isWaiting = false;
 // ==========================================
 if (localStorage.getItem("theme") === "light") {
   document.documentElement.classList.add("light");
-  themeToggleBtn.textContent = "☀️";
+  if (themeToggleBtn) themeToggleBtn.textContent = "☀";
 } else {
-  themeToggleBtn.textContent = "🌙";
+  if (themeToggleBtn) themeToggleBtn.textContent = "🌙";
 }
 
 // ==========================================
@@ -37,8 +37,8 @@ function formatAnswer(text) {
 
   let out = text;
 
-  // Bold
-  out = out.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  // Bold: *something*
+  out = out.replace(/\*(.*?)\*/g, "<strong>$1</strong>");
 
   // Bullet list
   out = out.replace(/^\* (.*)$/gm, "<li>$1</li>");
@@ -46,7 +46,7 @@ function formatAnswer(text) {
   // Numbered list
   out = out.replace(/^\d+\. (.*)$/gm, "<li>$1</li>");
 
-  // Wrap in <ul>
+  // Wrap li blocks in <ul>
   out = out.replace(/(<li>[\s\S]*?<\/li>)/g, "<ul>$1</ul>");
 
   // Newlines
@@ -85,12 +85,12 @@ function showTyping() {
   d.className = "msg msg-bot typing";
   d.id = "typingIndicator";
   d.innerHTML = `
-        <span>AI is thinking</span>
-        <span class="typing-dots">
-            <span class="typing-dot"></span>
-            <span class="typing-dot"></span>
-            <span class="typing-dot"></span>
-        </span>`;
+    <span>AI is thinking</span>
+    <span class="typing-dots">
+      <span class="typing-dot"></span>
+      <span class="typing-dot"></span>
+      <span class="typing-dot"></span>
+    </span>`;
   chatBox.appendChild(d);
   scrollBottom(true);
 }
@@ -108,6 +108,7 @@ function scrollBottom(smooth = false) {
 }
 
 function updateSuggested() {
+  if (!suggestedPromptsEl) return;
   suggestedPromptsEl.style.display =
     chatBox.children.length === 0 ? "block" : "none";
 }
@@ -123,6 +124,7 @@ function addHistory(q) {
 }
 
 function renderHistory() {
+  if (!historyListEl) return;
   historyListEl.innerHTML = "";
 
   if (!chatHistory.length) {
@@ -182,16 +184,15 @@ async function askChat(prefill) {
     // Add PDF link
     if (data.source_link) {
       finalAnswer += `
-                <br><br>
-                <div style="margin-top:6px;">
-                    <strong>Source PDF:</strong>
-                    <a href="${data.source_link}" 
-                       target="_blank" 
-                       style="color:#38bdf8;text-decoration:underline;">
-                       ${data.source_label || "Open PDF"}
-                    </a>
-                </div>
-            `;
+        <br><br>
+        <div style="margin-top:6px;">
+          <strong>Source PDF:</strong>
+          <a href="${data.source_link}" 
+             target="_blank" 
+             style="color:#38bdf8;text-decoration:underline;">
+             ${data.source_label || "Open PDF"}
+          </a>
+        </div>`;
     }
 
     appendBot(finalAnswer);
@@ -221,25 +222,31 @@ inputEl.addEventListener("input", () => {
   inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + "px";
 });
 
-clearChatBtn.onclick = () => {
-  chatBox.innerHTML = "";
-  updateSuggested();
-};
+if (clearChatBtn) {
+  clearChatBtn.onclick = () => {
+    chatBox.innerHTML = "";
+    updateSuggested();
+  };
+}
 
-scrollBottomBtn.onclick = () => scrollBottom(true);
+if (scrollBottomBtn) {
+  scrollBottomBtn.onclick = () => scrollBottom(true);
+}
 
-themeToggleBtn.onclick = () => {
-  const html = document.documentElement;
-  if (html.classList.contains("light")) {
-    html.classList.remove("light");
-    localStorage.setItem("theme", "dark");
-    themeToggleBtn.textContent = "🌙";
-  } else {
-    html.classList.add("light");
-    localStorage.setItem("theme", "light");
-    themeToggleBtn.textContent = "☀️";
-  }
-};
+if (themeToggleBtn) {
+  themeToggleBtn.onclick = () => {
+    const html = document.documentElement;
+    if (html.classList.contains("light")) {
+      html.classList.remove("light");
+      localStorage.setItem("theme", "dark");
+      themeToggleBtn.textContent = "🌙";
+    } else {
+      html.classList.add("light");
+      localStorage.setItem("theme", "light");
+      themeToggleBtn.textContent = "☀";
+    }
+  };
+}
 
 // ==========================================
 // INITIAL
