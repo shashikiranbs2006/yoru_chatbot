@@ -14,6 +14,14 @@ import stringSimilarity from "string-similarity";
 dotenv.config();
 
 // ---------------------------------------------------------
+// EXPRESS
+// ---------------------------------------------------------
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+
+// ---------------------------------------------------------
 // PATHS + FILE INDEX
 // ---------------------------------------------------------
 const __filename = fileURLToPath(import.meta.url);
@@ -30,20 +38,124 @@ try {
 }
 
 // ---------------------------------------------------------
-// EXPRESS
+// SUBJECT → MODULE → KEYWORD MAP  (NEW)
 // ---------------------------------------------------------
-const app = express();
-app.use(cors());
-app.use(express.json());
+const SUBJECT_MAP = {
+  os: {
+    keywords: ["os", "operating system", "deadlock", "scheduling", "paging"],
+    modules: {
+      1: ["system structure", "os structure", "system calls", "os services"],
+      2: ["process scheduling", "threads", "multithreading"],
+      3: ["synchronization", "semaphore", "deadlock", "critical section"],
+      4: ["memory management", "paging", "segmentation", "thrashing"],
+      5: ["file system", "directory", "disk scheduling", "protection"]
+    }
+  },
+
+  dsa: {
+    keywords: ["dsa", "data structures", "stack", "queue", "trees", "graphs"],
+    modules: {
+      1: ["arrays", "stacks", "postfix", "prefix", "polish notation"],
+      2: ["queues", "circular queue", "priority queue", "recursion"],
+      3: ["linked list", "dll", "sll", "circular linked", "garbage collection"],
+      4: ["trees", "binary tree", "tree traversal", "bst"],
+      5: ["graphs", "bfs", "dfs", "hashing", "collision", "rehashing"]
+    }
+  },
+
+  ddco: {
+    keywords: ["ddco", "digital logic", "logic gates", "microprocessor"],
+    modules: {
+      1: ["boolean algebra", "kmap", "nand", "nor", "verilog"],
+      2: ["adder", "subtractor", "encoder", "decoder", "multiplexer", "flip flop"],
+      3: ["processor", "instruction", "addressing modes"],
+      4: ["io devices", "interrupts", "dma", "cache memory"],
+      5: ["pipeline", "alu", "register transfer"]
+    }
+  },
+
+  maths: {
+    keywords: ["math", "mathematics", "probability", "statistics", "regression"],
+    modules: {
+      1: ["probability distribution", "random variable", "binomial", "poisson"],
+      2: ["joint probability", "markov chain"],
+      3: ["sampling", "standard error", "hypothesis testing"],
+      4: ["t test", "chi square", "f distribution"],
+      5: ["correlation", "regression", "least squares"]
+    }
+  }
+};
 
 // ---------------------------------------------------------
-// CHROMA v2 CLIENT
+// SMART QUERY PARSERS  (NEW)
 // ---------------------------------------------------------
-const chroma = new ChromaClient({
-  path: "http://localhost:8000"
-});
+function extractModule(q) {
+  const m = q.match(/module\s*[-_ ]*(\d+)/i);
+  return m ? parseInt(m[1]) : null;
+}
 
-const COLLECTION = "rag_academic_docs";
+function extractSem(q) {
+  const s = q.match(/(\d+)\s*(st|nd|rd|th)?\s*sem/i);
+  return s ? parseInt(s[1]) : null;
+}
+
+function extractSubject(q) {
+  q = q.toLowerCase();
+  for (const [subj, data] of Object.entries(SUBJECT_MAP)) {
+    if (data.keywords.some(k => q.includes(k))) return subj;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------
+// SMART FILTER + FUZZY MATCH  (NEW)
+// ---------------------------------------------------------
+function smartFilterFiles(query, fileIndex) {
+  const allFiles = Object.keys(fileIndex);
+  let filtered = allFiles;
+
+  const mod = extractModule(query);
+  const sem = extractSem(query);
+  const subj = extractSubject(query);
+
+  if (mod) {
+    filtered = filtered.filter(f =>
+      f.toLowerCase().includes(`module ${mod}`) ||
+      f.toLowerCase().includes(`module_${mod}`) ||
+      f.toLowerCase().includes(`mod ${mod}`) ||
+      f.toLowerCase().includes(`${mod}.`)
+    );
+  }
+
+  if (sem) {
+    filtered = filtered.filter(f =>
+      f.toLowerCase().includes(`${sem}rd sem`) ||
+      f.toLowerCase().includes(`${sem}th sem`) ||
+      f.toLowerCase().includes(`${sem}nd sem`) ||
+      f.toLowerCase().includes(`${sem}st sem`)
+    );
+  }
+
+  if (subj) {
+    filtered = filtered.filter(f =>
+      f.toLowerCase().includes(subj)
+    );
+  }
+
+  if (filtered.length === 0) return allFiles;
+  return filtered;
+}
+
+function findSmartFile(query, fileIndex) {
+  const filtered = smartFilterFiles(query, fileIndex);
+
+  const result = stringSimilarity.findBestMatch(
+    query.toLowerCase(),
+    filtered.map(f => f.toLowerCase())
+  );
+
+  return filtered[result.bestMatchIndex];
+}
 
 // ---------------------------------------------------------
 // GEMINI
@@ -53,77 +165,59 @@ const llm = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 const embedder = genAI.getGenerativeModel({ model: "text-embedding-004" });
 
 // ---------------------------------------------------------
-// HELPER: FUZZY MATCH FILES  (NEW)
-// ---------------------------------------------------------
-function findBestFileForQuery(query, fileIndex) {
-  const fileList = Object.keys(fileIndex);
-  const result = stringSimilarity.findBestMatch(
-    query.toLowerCase(),
-    fileList.map(f => f.toLowerCase())
-  );
-  return fileList[result.bestMatchIndex];
-}
-
-// ---------------------------------------------------------
-// MESSAGE CLASSIFIER (LLM)  — UPDATED WITH NEW CATEGORY
+// CLASSIFIER (STRONG VERSION)
 // ---------------------------------------------------------
 async function classifyMessage(question) {
   const prompt = `
-You are a classifier for a college notes chatbot.
+You are a classifier for a college academic assistant platform.
 
-Classify the USER MESSAGE into exactly one of these categories:
+Classify the USER MESSAGE into EXACTLY one of these categories:
 
 1) SMALL_TALK
-- Greetings, emojis, casual chat.
+- Greetings, emojis, chit-chat with NO intent of studying.
 
 2) DIRECT_NOTES_REQUEST
-- User is requesting notes, pdf, module notes, unit notes, IA notes, syllabus, etc.
+- User is asking for:
+  notes, pdf, syllabus, module notes, unit notes, IA notes, material.
 - User is NOT asking for explanation.
-Examples:
-"give module 5 notes"
-"send pdf module 1"
-"dsa unit 3 notes"
-"os module 2 pdf"
-"dbms notes"
 
 3) NOTES_QUERY
-- Requests that ask for definitions, explanations, concepts, formulas, answers, content details.
+- User is asking academic questions:
+  explanations, definitions, theory, differences, problem solving.
 
 4) OTHER
-- Anything else.
+- Anything that does not belong to above categories.
 
-Return ONLY one label: SMALL_TALK, DIRECT_NOTES_REQUEST, NOTES_QUERY, or OTHER.
+Return ONLY:
+SMALL_TALK
+DIRECT_NOTES_REQUEST
+NOTES_QUERY
+OTHER
 
 USER MESSAGE:
 "${question}"
-  `;
+`;
 
   const r = await llm.generateContent(prompt);
-  const raw = r.response.text().trim().toUpperCase();
-
-  if (raw.includes("SMALL_TALK")) return "SMALL_TALK";
-  if (raw.includes("DIRECT_NOTES_REQUEST")) return "DIRECT_NOTES_REQUEST";
-  if (raw.includes("NOTES_QUERY")) return "NOTES_QUERY";
-  return "OTHER";
+  return r.response.text().trim().toUpperCase();
 }
 
 // ---------------------------------------------------------
-// SMALL TALK LLM (NO KNOWLEDGE)
+// SMALL TALK LLM (STRICT)
 // ---------------------------------------------------------
 async function runSmallTalkLLM(question) {
   const prompt = `
-You are a very simple casual conversation assistant.
+You are a minimal small-talk assistant.
 
-Rules:
-- Keep replies a bit formal.
-- DO NOT answer any technical, academic, or knowledge-based questions.
-- If the user asks anything requiring academic content (definitions, notes, explanations, concepts), reply exactly:
+RULES:
+- Reply short.
+- If the message contains ANY academic intent, reply EXACTLY:
 Not in notes.
 
 User: ${question}
 
 Reply:
-`;
+  `;
   const r = await llm.generateContent(prompt);
   return r.response.text().trim();
 }
@@ -141,65 +235,75 @@ function cleanContext(text) {
     .trim();
 }
 
+// ---------------------------------------------------------
+// STRICT RAG-GROUNDED ANSWER ENGINE
+// ---------------------------------------------------------
 async function runLLM(question, context) {
   const prompt = `
-You are a retrieval-grounded academic assistant.
+You are a STRICT retrieval-grounded academic assistant.
 
-You must answer strictly and only using the text provided in “Context.” 
-Do not use prior knowledge.
-
-If information requested is not explicitly present, output:
+You MUST answer ONLY using the information in "CONTEXT".
+If ANY information is missing:
+Reply EXACTLY:
 Not in notes.
 
+If context is partial:
+Give the partial answer, then append EXACTLY:
+Not in notes.
+
+You may only rephrase context.
+You may NOT add:
+- Examples
+- Explanations not in context
+- Assumptions
+- Outside knowledge
+- Missing reasoning
+
+------------------------------------------------------
 CONTEXT:
 ${context}
 
 QUESTION:
 ${question}
 
-ANSWER:
+STRICT ANSWER:
 `;
 
   const r = await llm.generateContent(prompt);
-  return r.response.text();
+  return r.response.text().trim();
 }
 
 // ---------------------------------------------------------
-// CHAT ENDPOINT (v2 QUERY)
+// CHROMA CLIENT
+// ---------------------------------------------------------
+const chroma = new ChromaClient({
+  path: "http://localhost:8000"
+});
+
+// ---------------------------------------------------------
+// CHAT ENDPOINT
 // ---------------------------------------------------------
 app.post("/chat", async (req, res) => {
   try {
     const { question } = req.body;
-    if (!question) {
+
+    if (!question)
       return res.status(400).json({ error: "Question missing" });
-    }
 
     console.log("QUESTION:", question);
 
-    // -----------------------------------------------------
-    // CLASSIFY MESSAGE FIRST
-    // -----------------------------------------------------
     const category = await classifyMessage(question);
     console.log("CATEGORY:", category);
 
-    // -----------------------------------------------------
-    // SMALL TALK PATH (NO RAG, NO SOURCE)
-    // -----------------------------------------------------
+    // SMALL TALK
     if (category === "SMALL_TALK") {
       const answer = await runSmallTalkLLM(question);
-      return res.json({
-        question,
-        answer,
-        source_label: null,
-        source_link: null
-      });
+      return res.json({ question, answer, source_label: null, source_link: null });
     }
 
-    // -----------------------------------------------------
-    // DIRECT NOTES REQUEST → PURE FILE RETRIEVAL (NEW)
-    // -----------------------------------------------------
+    // DIRECT NOTES REQUEST → SMART FILE MATCH
     if (category === "DIRECT_NOTES_REQUEST") {
-      const bestFile = findBestFileForQuery(question, fileIndex);
+      const bestFile = findSmartFile(question, fileIndex);
       const link = fileIndex[bestFile];
 
       if (!link) {
@@ -219,17 +323,11 @@ app.post("/chat", async (req, res) => {
       });
     }
 
-    // -----------------------------------------------------
-    // NOTES QUERY → NORMAL RAG PIPELINE (UNCHANGED)
-    // -----------------------------------------------------
+    // NOTES QUERY → ORIGINAL RAG
     if (category === "NOTES_QUERY") {
-      // Embed query
       const qEmbedding = await embedQuery(question);
+      const collection = await chroma.getCollection({ name: "rag_academic_docs" });
 
-      // Load collection (v2)
-      const collection = await chroma.getCollection({ name: COLLECTION });
-
-      // Query
       const results = await collection.query({
         queryEmbeddings: [qEmbedding],
         nResults: 5,
@@ -242,22 +340,18 @@ app.post("/chat", async (req, res) => {
       const context = cleanContext(docs.join("\n"));
       const answer = await runLLM(question, context);
 
-      // File source
       let sourceLabel = null;
       let sourceLink = null;
 
       if (metas[0]?.source) {
         const fname = metas[0].source;
-
         sourceLabel = fname.replace(/\.pdf$/i, "");
 
         const match = Object.keys(fileIndex).find(k =>
           k.toLowerCase().includes(fname.toLowerCase())
         );
 
-        if (match) {
-          sourceLink = fileIndex[match];
-        }
+        if (match) sourceLink = fileIndex[match];
       }
 
       return res.json({
@@ -268,12 +362,10 @@ app.post("/chat", async (req, res) => {
       });
     }
 
-    // -----------------------------------------------------
     // OTHER CATEGORY
-    // -----------------------------------------------------
     return res.json({
       question,
-      answer: "Not in notes.",
+      answer: "We are on an educational platform. Ask academic questions or request notes.",
       source_label: null,
       source_link: null
     });
