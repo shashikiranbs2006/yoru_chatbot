@@ -121,7 +121,8 @@ if (!process.env.GEMINI_API_KEY) {
   process.exit(1);
 }
 // ChromaDB: use persistent local path (ships with the repo)
-const CHROMA_PATH = process.env.CHROMA_PATH || path.join(__dirname, "chroma");
+const CHROMA_PATH =
+    process.env.CHROMA_URL || "http://localhost:8000";
 
 // Init Gemini for embeddings
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
