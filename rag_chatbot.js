@@ -398,7 +398,7 @@ const groq = process.env.GROQ_API_KEY
     })
   : null;
 
-const LLM_MODEL = "llama-3.1-8b-instant";
+const LLM_MODEL = process.env.GROQ_MODEL || "qwen/qwen3.8-27b";
 
 // ---------------------------------------------------------
 // GEMINI EMBEDDINGS (replaces Ollama nomic-embed-text)
@@ -485,7 +485,7 @@ USER MESSAGE:
     model: LLM_MODEL,
     messages: [{ role: "user", content: prompt }],
     temperature: 0,
-    max_tokens: 10,
+    max_tokens: 50,
   });
 
   return r.choices[0].message.content.trim().toUpperCase();
