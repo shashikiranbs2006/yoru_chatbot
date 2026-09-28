@@ -104,6 +104,16 @@ const removePdfBtn    = document.getElementById('removePdfBtn');
   createParticles();
   initOrbMouseTracking();
 
+  // If redirected with ?guest=true, auto-transition to chat
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('guest') === 'true') {
+    if (window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    await transitionToChatPage();
+    return;
+  }
+
   // Check if user is already authenticated
   const alreadyAuthed = await checkAuth();
 

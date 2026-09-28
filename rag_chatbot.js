@@ -669,21 +669,30 @@ ANSWER:
 // ---------------------------------------------------------
 
 // Google OAuth login
-app.get(
-  "/auth/google",
+app.get("/auth/google", (req, res, next) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    if (req.session) req.session.guest = true;
+    return res.redirect((process.env.APP_URL || "") + "/?guest=true");
+  }
   passport.authenticate("google", {
     scope: ["profile", "email"],
-  }),
-);
+  })(req, res, next);
+});
 
 // Google OAuth callback
 app.get(
   "/auth/google/callback",
-  passport.authenticate("google", {
-    failureRedirect: (process.env.APP_URL || "http://localhost:4000") + "/#/login",
-  }),
+  (req, res, next) => {
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+      if (req.session) req.session.guest = true;
+      return res.redirect((process.env.APP_URL || "") + "/?guest=true");
+    }
+    passport.authenticate("google", {
+      failureRedirect: (process.env.APP_URL || "") + "/#/login",
+    })(req, res, next);
+  },
   (req, res) => {
-    res.redirect(process.env.APP_URL || "http://localhost:4000");
+    res.redirect(process.env.APP_URL || "/");
   },
 );
 
@@ -693,6 +702,17 @@ app.get("/auth/user", (req, res) => {
     return res.json({
       authenticated: true,
       user: req.user,
+    });
+  }
+  if (req.session?.guest) {
+    return res.json({
+      authenticated: true,
+      user: {
+        id: "guest",
+        displayName: "Guest Student",
+        email: "guest@bmsit.in",
+        photo: null,
+      },
     });
   }
   res.json({
