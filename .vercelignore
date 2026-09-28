@@ -1,0 +1,9 @@
+stage2_chunks
+stage3_embeddings2
+stage4_upload
+scripts
+cli_test.js
+.vscode
+*.sqlite3-journal
+.git
+.github

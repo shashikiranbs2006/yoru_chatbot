@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: yoru-chatbot
+    runtime: docker
+    plan: free
+    region: oregon
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: CHROMA_URL
+        value: http://127.0.0.1:8000

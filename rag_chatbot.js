@@ -105,27 +105,30 @@ app.use(express.json());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Serve frontend static files from /rag_project_frontend
-app.use(express.static(path.join(__dirname, "rag_project_frontend")));
+// Serve frontend static files from /public (fallback to /rag_project_frontend)
+const publicDir = fs.existsSync(path.join(__dirname, "public"))
+  ? path.join(__dirname, "public")
+  : path.join(__dirname, "rag_project_frontend");
+app.use(express.static(publicDir));
 // Serve downloaded files for source PDF links
 app.use("/files", express.static(path.join(__dirname, "downloaded_files")));
 // ---------------------------------------------------------
 // ENV CHECK
 // ---------------------------------------------------------
 if (!process.env.GROQ_API_KEY) {
-  console.error("GROQ_API_KEY missing in .env");
-  process.exit(1);
+  console.warn("⚠️  GROQ_API_KEY is missing in environment variables.");
 }
 if (!process.env.GEMINI_API_KEY) {
-  console.error("GEMINI_API_KEY missing in .env");
-  process.exit(1);
+  console.warn("⚠️  GEMINI_API_KEY is missing in environment variables.");
 }
-// ChromaDB: use persistent local path (ships with the repo)
+// ChromaDB: use remote URL or local path
 const CHROMA_PATH =
-    process.env.CHROMA_URL || "http://localhost:8000";
+  process.env.CHROMA_URL || process.env.CHROMA_PATH || "http://localhost:8000";
 
 // Init Gemini for embeddings
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = process.env.GEMINI_API_KEY
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null;
 // ---------------------------------------------------------
 // FILE INDEX
 // ---------------------------------------------------------
@@ -388,10 +391,12 @@ function findSmartFile(query, fileIndex) {
 // ---------------------------------------------------------
 // GROQ CLIENT
 // ---------------------------------------------------------
-const groq = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
-  baseURL: "https://api.groq.com/openai/v1",
-});
+const groq = process.env.GROQ_API_KEY
+  ? new OpenAI({
+      apiKey: process.env.GROQ_API_KEY,
+      baseURL: "https://api.groq.com/openai/v1",
+    })
+  : null;
 
 const LLM_MODEL = "llama-3.1-8b-instant";
 
@@ -399,6 +404,9 @@ const LLM_MODEL = "llama-3.1-8b-instant";
 // GEMINI EMBEDDINGS (replaces Ollama nomic-embed-text)
 // ---------------------------------------------------------
 async function embedQuery(text) {
+  if (!genAI) {
+    throw new Error("GEMINI_API_KEY is not configured on the server.");
+  }
   const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
   const result = await model.embedContent(text);
   const embedding = result.embedding.values;
@@ -507,11 +515,22 @@ Reply:
 }
 
 // ---------------------------------------------------------
-// CHROMA CLIENT (persistent local path — no separate server needed)
+// CHROMA CLIENT
 // ---------------------------------------------------------
-const chroma = new ChromaClient({
-  path: CHROMA_PATH,
-});
+function getChromaConfig(urlStr) {
+  try {
+    const url = new URL(urlStr);
+    return {
+      host: url.hostname,
+      port: url.port ? parseInt(url.port) : (url.protocol === "https:" ? 443 : 80),
+      ssl: url.protocol === "https:",
+    };
+  } catch {
+    return { path: urlStr };
+  }
+}
+
+const chroma = new ChromaClient(getChromaConfig(CHROMA_PATH));
 
 // ---------------------------------------------------------
 // RETRIEVAL + DEDUPE
@@ -521,44 +540,46 @@ async function retrieveWithReranking(question, topK = 10, finalK = 5) {
   try {
     collection = await chroma.getCollection({ name: "rag_academic_docs" });
   } catch (err) {
-    if (
-      err.message?.includes("not found") ||
-      err.name === "ChromaNotFoundError"
-    ) {
-      console.error(
-        "Chroma collection 'rag_academic_docs' not found. Check if Chroma is running and collection is uploaded.",
-      );
-      return {
-        documents: [],
-        metadatas: [],
-      };
-    }
-    throw err;
+    console.error("Chroma retrieval error:", err.message);
+    return {
+      documents: [],
+      metadatas: [],
+      chromaError: err.message,
+    };
   }
 
-  const queries = await expandQuery(question);
+  let queries = [question];
+  try {
+    queries = await expandQuery(question);
+  } catch (e) {
+    console.warn("Query expansion skipped:", e.message);
+  }
 
   const allResults = [];
 
   for (const q of queries) {
-    const qEmbedding = await embedQuery(q);
+    try {
+      const qEmbedding = await embedQuery(q);
 
-    const results = await collection.query({
-      queryEmbeddings: [qEmbedding],
-      nResults: Math.ceil(topK / queries.length),
-      include: ["documents", "metadatas", "distances"],
-    });
-
-    const docs = results.documents?.[0] || [];
-    const metas = results.metadatas?.[0] || [];
-    const distances = results.distances?.[0] || [];
-
-    for (let i = 0; i < docs.length; i++) {
-      allResults.push({
-        document: docs[i],
-        metadata: metas[i],
-        distance: distances[i],
+      const results = await collection.query({
+        queryEmbeddings: [qEmbedding],
+        nResults: Math.ceil(topK / queries.length),
+        include: ["documents", "metadatas", "distances"],
       });
+
+      const docs = results.documents?.[0] || [];
+      const metas = results.metadatas?.[0] || [];
+      const distances = results.distances?.[0] || [];
+
+      for (let i = 0; i < docs.length; i++) {
+        allResults.push({
+          document: docs[i],
+          metadata: metas[i],
+          distance: distances[i],
+        });
+      }
+    } catch (e) {
+      console.warn("Chroma query step failed for query:", q, e.message);
     }
   }
 
@@ -705,6 +726,45 @@ app.get("/health", async (req, res) => {
 });
 
 // ---------------------------------------------------------
+// CHAT HISTORY & UPLOAD (Frontend support)
+// ---------------------------------------------------------
+const sessionHistories = new Map();
+
+app.get("/chatHistory", (req, res) => {
+  const sessionId = req.query.sessionId || req.sessionID || "default";
+  const messages = sessionHistories.get(sessionId) || [];
+  res.json({ messages });
+});
+
+app.post("/saveChat", (req, res) => {
+  const { question, answer, sourceLabel, sourceFrom, sessionId } = req.body;
+  const sid = sessionId || req.sessionID || "default";
+  if (!sessionHistories.has(sid)) {
+    sessionHistories.set(sid, []);
+  }
+  sessionHistories.get(sid).push({
+    question,
+    answer,
+    sourceLabel,
+    sourceFrom,
+    createdAt: new Date().toISOString(),
+  });
+  res.json({ success: true });
+});
+
+app.delete("/chatHistory", (req, res) => {
+  const sid = req.query.sessionId || req.sessionID || "default";
+  sessionHistories.delete(sid);
+  res.json({ success: true, message: "History cleared" });
+});
+
+app.post("/upload", (req, res) => {
+  res.status(501).json({
+    error: "Custom document upload is disabled in serverless deployment. All core BMSIT notes are already indexed in the system.",
+  });
+});
+
+// ---------------------------------------------------------
 // QUESTION BANK ENGINE
 // ---------------------------------------------------------
 
@@ -721,12 +781,29 @@ async function getQuestionBank(subject, moduleNumber) {
 
   const subjectKeywords = SUBJECT_MAP[subject]?.keywords || [];
 
-  const collection = await chroma.getCollection({ name: "rag_academic_docs" });
+  let collection;
+  try {
+    collection = await chroma.getCollection({ name: "rag_academic_docs" });
+  } catch (err) {
+    console.error("Chroma question bank retrieval error:", err.message);
+    return {
+      questions: [],
+      error: `ChromaDB vector store is unreachable (${err.message}). Ensure ChromaDB is running.`,
+    };
+  }
 
-  const results = await collection.get({
-    limit: 10000,
-    include: ["documents", "metadatas"],
-  });
+  let results;
+  try {
+    results = await collection.get({
+      limit: 10000,
+      include: ["documents", "metadatas"],
+    });
+  } catch (err) {
+    return {
+      questions: [],
+      error: `Failed to retrieve question bank from ChromaDB: ${err.message}`,
+    };
+  }
 
   const docs = results.documents || [];
   const metas = results.metadatas || [];
@@ -963,8 +1040,22 @@ app.post("/chat", async (req, res) => {
 
     // NOTES QUERY
     if (category === "NOTES_QUERY") {
-      const { documents: docs, metadatas: metas } =
-        await retrieveWithReranking(question);
+      const retrievalResult = await retrieveWithReranking(question);
+      const docs = retrievalResult.documents;
+      const metas = retrievalResult.metadatas;
+
+      if (retrievalResult.chromaError) {
+        const bestFile = findSmartFile(question, fileIndex);
+        const link = bestFile ? fileIndex[bestFile] : null;
+        return res.json({
+          question,
+          answer: `⚠️ ChromaDB vector store is currently unreachable (${retrievalResult.chromaError}). If deployed on Vercel, ensure the CHROMA_URL environment variable points to your hosted ChromaDB service. If running locally, start Chroma with Docker: \`docker compose up -d\`.\n\nHere are the most relevant notes from our library:`,
+          source_label: bestFile || null,
+          source_link: link || null,
+          sources: bestFile ? [{ label: bestFile, drive_link: link }] : [],
+          youtube_links: youtubeLinks,
+        });
+      }
 
       const context = cleanContext(docs.join("\n\n"));
       const answer = await runLLM(question, context);
@@ -1026,15 +1117,23 @@ app.post("/chat", async (req, res) => {
 // Catch-all: serve frontend index.html for any unmatched GET route
 // Express 5.x requires named wildcards - use '{*path}' instead of '*'
 app.get("/{*path}", (req, res) => {
-  res.sendFile(path.join(__dirname, "rag_project_frontend", "index.html"));
+  const indexPath = path.join(publicDir, "index.html");
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+  res.status(404).send("Frontend index.html not found");
 });
 
 // ---------------------------------------------------------
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`✅ RAG Chatbot running at http://localhost:${PORT}`);
-  console.log(`📂 Frontend served at http://localhost:${PORT}/`);
-  console.log("Groq model:", LLM_MODEL);
-  console.log("Chroma path:", CHROMA_PATH);
-  console.log("Embeddings: Gemini text-embedding-004");
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`✅ RAG Chatbot running at http://localhost:${PORT}`);
+    console.log(`📂 Frontend served at http://localhost:${PORT}/`);
+    console.log("Groq model:", LLM_MODEL);
+    console.log("Chroma path:", CHROMA_PATH);
+    console.log("Embeddings: Gemini text-embedding-004");
+  });
+}
+
+export default app;

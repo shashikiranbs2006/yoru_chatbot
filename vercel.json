@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/chat", "destination": "/api/index.js" },
+    { "source": "/health", "destination": "/api/index.js" },
+    { "source": "/auth/:path*", "destination": "/api/index.js" },
+    { "source": "/chatHistory", "destination": "/api/index.js" },
+    { "source": "/saveChat", "destination": "/api/index.js" },
+    { "source": "/test-qb", "destination": "/api/index.js" },
+    { "source": "/debug-all", "destination": "/api/index.js" },
+    { "source": "/upload", "destination": "/api/index.js" },
+    { "source": "/files/:path*", "destination": "/api/index.js" },
+    { "source": "/api/:path*", "destination": "/api/index.js" }
+  ]
+}

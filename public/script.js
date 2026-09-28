@@ -6,9 +6,9 @@
 'use strict';
 
 // ── CONFIG ──────────────────────────────────────────────────
-// When served from the backend (localhost:4000), use same-origin (empty string)
-// to avoid CORS issues. Falls back to localhost:4000 for file:// or other origins.
-const API_BASE = window.location.origin.includes('localhost:4000') 
+// Automatically use same-origin (empty string) whenever loaded over HTTP/HTTPS (e.g. Vercel, localhost).
+// Falls back to http://localhost:4000 only if opened directly from local filesystem (file://).
+const API_BASE = (window.location.protocol === 'http:' || window.location.protocol === 'https:')
   ? '' 
   : 'http://localhost:4000';
 
