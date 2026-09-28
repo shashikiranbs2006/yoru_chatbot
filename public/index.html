@@ -106,22 +106,35 @@
 
         <!-- Hero text (left side) -->
         <div class="hero-section">
-          <div class="hero-badge">✦ Powered by RAG</div>
+          <div class="hero-badge">✦ BMSIT Academic AI</div>
           <h1 class="hero-text" id="heroText">
-            <span class="hero-line">HERE IS OUR</span>
-            <span class="hero-line hero-accent">RAG MODEL</span>
-            <span class="hero-line">THAT RETRIEVES</span>
-            <span class="hero-line">BMSIT NOTES</span>
+            Smart RAG Assistant for <span class="hero-accent">BMSIT Notes</span>
           </h1>
           <p class="hero-sub">
-            Ask anything from your notes — uploaded PDFs, DOCX, or our curated
-            collection — and get instant AI-powered answers.
+            Ask questions and get instant, syllabus-grounded answers and exam-ready notes directly from your course materials.
           </p>
 
           <!-- CTA Buttons -->
           <div class="login-buttons" id="loginButtons">
             <button
               class="btn-login-filled"
+              id="btnContinue"
+              onclick="continueWithoutLogin()"
+            >
+              <span class="btn-text">Start Chatting (Instant Access)</span>
+              <svg class="btn-arrow" viewBox="0 0 20 20" fill="none">
+                <path
+                  d="M4 10H16M16 10L11 5M16 10L11 15"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+
+            <button
+              class="btn-login-ghost"
               id="btnLoginGoogle"
               onclick="loginWithGoogle()"
             >
@@ -148,31 +161,14 @@
                   fill="#EA4335"
                 />
               </svg>
-              <span class="btn-text">Login with Google</span>
+              <span class="btn-text">Sign in with Google</span>
               <span class="btn-spinner" id="loginSpinner"></span>
-            </button>
-
-            <button
-              class="btn-login-ghost"
-              id="btnContinue"
-              onclick="continueWithoutLogin()"
-            >
-              <span class="btn-text">Continue Without Login</span>
-              <svg class="btn-arrow" viewBox="0 0 20 20" fill="none">
-                <path
-                  d="M4 10H16M16 10L11 5M16 10L11 15"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
             </button>
           </div>
 
           <!-- Small disclaimer -->
           <p class="login-disclaimer">
-            By continuing, you agree to our terms. Your data is secure.
+            Free access for all students. No registration required.
           </p>
         </div>
       </div>

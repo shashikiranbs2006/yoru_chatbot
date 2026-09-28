@@ -126,7 +126,8 @@ input, textarea {
   position: fixed;
   inset: 0;
   z-index: 100;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
@@ -268,10 +269,12 @@ input, textarea {
 .login-content {
   position: relative;
   z-index: 10;
-  height: 100%;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: 32px 48px;
+  justify-content: space-between;
+  padding: 28px 36px;
+  box-sizing: border-box;
 }
 
 /* Top logo */
@@ -284,16 +287,16 @@ input, textarea {
 }
 
 .logo-icon {
-  width: 44px; height: 44px;
-  border-radius: 12px;
+  width: 40px; height: 40px;
+  border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 4px 16px rgba(147,51,234,0.4);
 }
 
-.logo-icon svg { width: 44px; height: 44px; display: block; }
+.logo-icon svg { width: 40px; height: 40px; display: block; }
 
 .logo-label {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.02em;
@@ -306,56 +309,43 @@ input, textarea {
 
 /* Hero section (left-center) */
 .hero-section {
-  max-width: 520px;
-  margin-top: auto;
-  margin-bottom: auto;
-  padding-bottom: 60px;
+  max-width: 580px;
+  margin: 32px 0;
 }
 
 .hero-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  padding: 5px 12px;
   border: 1px solid var(--border-accent);
   border-radius: var(--radius-pill);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--accent);
   background: var(--accent-soft);
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   opacity: 0;
   animation: fadeSlideUp 0.6s ease-out 0.2s forwards;
   backdrop-filter: blur(8px);
 }
 
 .hero-text {
-  display: flex;
-  flex-direction: column;
-  font-size: clamp(42px, 7vw, 72px);
-  font-weight: 900;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+  font-size: clamp(26px, 4vw, 42px);
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
   color: #ffffff;
-  text-shadow: 0 10px 40px rgba(0,0,0,0.4);
-  margin-bottom: 24px;
+  text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  margin-bottom: 16px;
+  opacity: 0;
+  animation: fadeSlideUp 0.6s ease-out 0.3s forwards;
 }
 
 [data-theme="light"] .hero-text {
   color: #1a1a2e;
-  text-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.06);
 }
-
-.hero-line {
-  opacity: 0;
-  display: block;
-  animation: fadeSlideUp 0.7s cubic-bezier(0.22,1,0.36,1) forwards;
-}
-
-.hero-line:nth-child(1) { animation-delay: 0.3s; }
-.hero-line:nth-child(2) { animation-delay: 0.42s; }
-.hero-line:nth-child(3) { animation-delay: 0.54s; }
-.hero-line:nth-child(4) { animation-delay: 0.66s; }
 
 .hero-accent {
   background: linear-gradient(90deg, var(--accent) 0%, #c084fc 50%, var(--pink) 100%);
@@ -365,84 +355,84 @@ input, textarea {
 }
 
 .hero-sub {
-  font-size: 16px;
-  line-height: 1.7;
+  font-size: 15px;
+  line-height: 1.6;
   color: var(--text-secondary);
-  max-width: 440px;
-  margin-bottom: 36px;
+  max-width: 480px;
+  margin-bottom: 24px;
   opacity: 0;
-  animation: fadeSlideUp 0.6s ease-out 0.78s forwards;
+  animation: fadeSlideUp 0.6s ease-out 0.45s forwards;
 }
 
 /* ── CTA Buttons ── */
 .login-buttons {
   display: flex;
-  flex-direction: column;
-  gap: 14px;
-  max-width: 320px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  max-width: 540px;
 }
 
 .btn-login-filled {
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 16px 28px;
-  border-radius: 14px;
+  gap: 10px;
+  padding: 13px 24px;
+  border-radius: 12px;
   background: var(--accent);
   color: #ffffff;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   overflow: hidden;
   box-shadow: var(--shadow-accent);
   opacity: 0;
-  transform: translateY(40px);
-  animation: buttonSlideUp 0.6s var(--bounce-easing) 1.0s forwards;
-  transition: transform 0.3s var(--bounce-easing), box-shadow 0.3s ease, background 0.2s ease;
+  animation: buttonSlideUp 0.5s var(--bounce-easing) 0.5s forwards;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  cursor: pointer;
+  border: none;
 }
 
 .btn-login-filled:hover {
-  transform: scale(1.06) translateY(-2px);
-  box-shadow: 0 22px 44px rgba(74,158,255,0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(74,158,255,0.4);
   background: var(--accent-hover);
 }
 
 .btn-login-filled:active {
-  transform: scale(0.97);
-  box-shadow: var(--shadow-sm);
+  transform: scale(0.98);
 }
 
 .btn-login-ghost {
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 15px 28px;
-  border-radius: 14px;
-  border: 2px solid var(--border-accent);
-  background: transparent;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border-accent);
+  background: rgba(255,255,255,0.06);
   color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   overflow: hidden;
   opacity: 0;
-  transform: translateY(40px);
-  animation: buttonSlideUp 0.6s var(--bounce-easing) 1.2s forwards;
-  transition: transform 0.3s var(--bounce-easing), box-shadow 0.3s ease, background 0.2s ease, border-color 0.2s ease;
+  animation: buttonSlideUp 0.5s var(--bounce-easing) 0.6s forwards;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
 }
 
 .btn-login-ghost:hover {
-  transform: scale(1.06) translateY(-2px);
-  background: var(--accent-soft);
+  background: rgba(255,255,255,0.12);
   border-color: var(--accent);
-  box-shadow: 0 12px 24px rgba(74,158,255,0.2);
+  transform: translateY(-2px);
 }
 
 .btn-login-ghost:active {
-  transform: scale(0.97);
-  background: rgba(74,158,255,0.15);
+  transform: scale(0.98);
 }
 
 .btn-icon { width: 20px; height: 20px; flex-shrink: 0; }
