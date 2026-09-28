@@ -141,6 +141,63 @@ try {
 } catch {
   console.log("file_index.json not found.");
 }
+
+// ---------------------------------------------------------
+// CHUNKS DATA (Fallback Search)
+// ---------------------------------------------------------
+let chunksData = [];
+try {
+  const chunksPath = path.join(__dirname, "stage2_chunks", "chunks.json");
+  if (fs.existsSync(chunksPath)) {
+    chunksData = JSON.parse(fs.readFileSync(chunksPath, "utf8"));
+    console.log(`Loaded ${chunksData.length} chunks for search fallback.`);
+  }
+} catch (e) {
+  console.warn("chunks.json not loaded:", e.message);
+}
+
+function keywordSearchFallback(query, topK = 5) {
+  if (!chunksData || chunksData.length === 0) return { documents: [], metadatas: [] };
+  const stopWords = new Set(["what", "is", "the", "a", "an", "and", "or", "in", "of", "to", "for", "with", "on", "at", "by", "from", "how", "why", "can", "explain", "describe", "give", "notes", "tell", "me", "about"]);
+  const terms = query
+    .toLowerCase()
+    .replace(/[^a-zA-Z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !stopWords.has(w));
+
+  if (terms.length === 0) return { documents: [], metadatas: [] };
+
+  const scored = [];
+  for (const chunk of chunksData) {
+    const textLower = (chunk.content || "").toLowerCase();
+    let score = 0;
+    for (const term of terms) {
+      if (textLower.includes(term)) {
+        const matches = textLower.split(term).length - 1;
+        score += matches;
+      }
+    }
+    if (score > 0) {
+      scored.push({
+        document: chunk.content,
+        metadata: {
+          source: chunk.source || "",
+          source_page: chunk.source || "",
+          pdf: chunk.source || "",
+          id: chunk.id || "",
+        },
+        score,
+      });
+    }
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  const top = scored.slice(0, topK);
+  return {
+    documents: top.map((t) => t.document),
+    metadatas: top.map((t) => t.metadata),
+  };
+}
 // ---------------------------------------------------------
 // SUBJECT MAP
 // ---------------------------------------------------------
@@ -458,24 +515,13 @@ Alternatives:
 // CLASSIFIER
 // ---------------------------------------------------------
 async function classifyMessage(question) {
-  const prompt = `
-Classify into EXACTLY one label:
-SMALL_TALK
-DIRECT_NOTES_REQUEST
-NOTES_QUERY
-QUESTION_BANK_REQUEST
-OTHER
+  const prompt = `Classify user message into EXACTLY one category:
+- SMALL_TALK: greetings, polite chat, non-academic banter (e.g. hi, hello, how are you, who made you, thanks)
+- DIRECT_NOTES_REQUEST: asking to download, send, get, or view notes/PDF files (e.g. send me math notes, give me module 1 notes, share os notes)
+- QUESTION_BANK_REQUEST: asking for question banks, list of questions, or previous exam questions
+- NOTES_QUERY: any academic question, definition, concept, explanation, difference, or topic inquiry (e.g. what is stack, what is bandwidth, explain paging, difference between process and thread)
 
-If the user asks for:
-- question bank
-- module questions
-- list of questions
-- questions of module
-- show questions
-
-Return QUESTION_BANK_REQUEST.
-
-Return ONLY the label.
+Return ONLY the category name.
 
 USER MESSAGE:
 "${question}"
@@ -485,10 +531,14 @@ USER MESSAGE:
     model: LLM_MODEL,
     messages: [{ role: "user", content: prompt }],
     temperature: 0,
-    max_tokens: 50,
+    max_tokens: 30,
   });
 
-  return r.choices[0].message.content.trim().toUpperCase();
+  const cat = r.choices[0].message.content.trim().toUpperCase();
+  if (cat.includes("DIRECT_NOTES")) return "DIRECT_NOTES_REQUEST";
+  if (cat.includes("QUESTION_BANK")) return "QUESTION_BANK_REQUEST";
+  if (cat.includes("SMALL_TALK")) return "SMALL_TALK";
+  return "NOTES_QUERY";
 }
 
 // ---------------------------------------------------------
@@ -597,6 +647,11 @@ async function retrieveWithReranking(question, topK = 10, finalK = 5) {
   uniqueResults.sort((a, b) => a.distance - b.distance);
 
   const topResults = uniqueResults.slice(0, finalK);
+
+  if (topResults.length === 0) {
+    console.log(`Vector retrieval returned 0 results for "${question}". Running keyword fallback...`);
+    return keywordSearchFallback(question, finalK);
+  }
 
   return {
     documents: topResults.map((r) => r.document),
