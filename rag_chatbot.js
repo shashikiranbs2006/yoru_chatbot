@@ -464,13 +464,20 @@ async function embedQuery(text) {
   if (!genAI) {
     throw new Error("GEMINI_API_KEY is not configured on the server.");
   }
-  const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
-  const result = await model.embedContent(text);
-  const embedding = result.embedding.values;
-  if (!embedding || embedding.length === 0) {
-    throw new Error("Gemini embedding failed: empty result");
+  const candidateModels = ["gemini-embedding-001", "text-embedding-004"];
+  for (const modelName of candidateModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.embedContent(text);
+      const embedding = result?.embedding?.values;
+      if (embedding && embedding.length > 0) {
+        return embedding;
+      }
+    } catch {
+      // try next model
+    }
   }
-  return embedding;
+  throw new Error("Gemini embedding failed across candidate models");
 }
 
 function cleanContext(text) {
@@ -581,6 +588,9 @@ function getChromaConfig(urlStr) {
 }
 
 const chroma = new ChromaClient(getChromaConfig(CHROMA_PATH));
+const dummyEmbeddingFunction = {
+  generate: async (texts) => texts.map(() => new Array(768).fill(0)),
+};
 
 // ---------------------------------------------------------
 // RETRIEVAL + DEDUPE
@@ -588,7 +598,10 @@ const chroma = new ChromaClient(getChromaConfig(CHROMA_PATH));
 async function retrieveWithReranking(question, topK = 10, finalK = 5) {
   let collection;
   try {
-    collection = await chroma.getCollection({ name: "rag_academic_docs" });
+    collection = await chroma.getCollection({
+      name: "rag_academic_docs",
+      embeddingFunction: dummyEmbeddingFunction,
+    });
   } catch (err) {
     console.error("Chroma retrieval error:", err.message);
     return {
@@ -858,7 +871,10 @@ async function getQuestionBank(subject, moduleNumber) {
 
   let collection;
   try {
-    collection = await chroma.getCollection({ name: "rag_academic_docs" });
+    collection = await chroma.getCollection({
+      name: "rag_academic_docs",
+      embeddingFunction: dummyEmbeddingFunction,
+    });
   } catch (err) {
     console.error("Chroma question bank retrieval error:", err.message);
     return {
