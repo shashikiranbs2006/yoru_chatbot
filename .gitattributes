@@ -1,1 +1,5 @@
 stage3_embeddings2/embeddings_v2.json filter=lfs diff=lfs merge=lfs -text
+
+# Force Unix LF on scripts — required for Docker/Linux containers (Render)
+*.sh text eol=lf
+Dockerfile text eol=lf
